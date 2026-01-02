@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>오투스세무법인 - 부가세 신고접수</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React & ReactDOM CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    <!-- Babel for JSX compilation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;700&display=swap');
+        body { font-family: 'Pretendard', sans-serif; -webkit-tap-highlight-color: transparent; }
+        .loading-spinner {
+            border: 3px solid rgba(0, 0, 0, 0.1);
+            border-radius: 50%;
+            border-top: 3px solid #2563eb;
+            width: 32px;
+            height: 32px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .btn-active:active { transform: scale(0.98); }
+        .admin-hidden-trigger { opacity: 0.1; transition: opacity 0.3s; }
+        .admin-hidden-trigger:hover { opacity: 1; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 overflow-x-hidden">
+    <div id="root">
+        <div class="h-screen flex flex-col items-center justify-center p-6 text-center">
+            <div class="loading-spinner mb-4"></div>
+            <p class="text-slate-500 font-medium">보안 연결을 설정하는 중입니다...</p>
+        </div>
+    </div>
+
+    <!-- Firebase SDK Setup -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
+        import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc, setDoc, getDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
+
+        // ========================================================
+        // 1. 여기에 Firebase 콘솔에서 복사한 키값을 입력하세요
+        // ========================================================
+        const manualConfig = {
+             apiKey: "AIzaSyCmqVgpC-ImcKIUMnXmk1USeGuitsD-Z5A",
+  authDomain: "vattax0001.firebaseapp.com",
+  projectId: "vattax0001",
+  storageBucket: "vattax0001.firebasestorage.app",
+  messagingSenderId: "859698771802",
+  appId: "1:859698771802:web:d5a1a9b2f448e80c2ae563",             
+        };
+        // ========================================================
+
+        const initFirebase = () => {
+            try {
+                let config = null;
+                if (manualConfig && manualConfig.apiKey) {
+                    config = manualConfig;
+                } else if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+                    config = JSON.parse(__firebase_config);
+                }
+
+                if (!config || !config.apiKey) {
+                    throw new Error("설정 정보가 없습니다. 파일의 manualConfig에 키를 입력해 주세요.");
+                }
+
+                const app = initializeApp(config);
+                const auth = getAuth(app);
+                const db = getFirestore(app);
+                const appId = typeof __app_id !== 'undefined' ? __app_id : 'vat-filing-manager';
+                const initialToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+                window.FB = { 
+                    db, auth, appId, initialToken,
+                    collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc, setDoc, getDoc, serverTimestamp, 
+                    signInAnonymously, signInWithCustomToken, onAuthStateChanged 
+                };
+                
+                window.FB_READY = true;
+                window.dispatchEvent(new Event('firebase-ready'));
+            } catch (e) {
+                console.error("Firebase Error:", e);
+                window.FB_ERROR = e.message;
+                window.dispatchEvent(new Event('firebase-error'));
+            }
+        };
+
+        initFirebase();
+    </script>
+
+    <!-- React App Logic -->
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // ========================================================
+        // 관리자 접속 암호 설정 (필요시 변경하세요)
+        // ========================================================
+        const ADMIN_PASSCODE = "otus1234"; 
+        // ========================================================
+
+        const Icon = ({ name, className = "w-5 h-5" }) => {
+            const icons = {
+                building: <path d="M3 21h18M3 7v1a3 3 0 0 0 6 0V7m0 1a3 3 0 0 0 6 0V7m0 1a3 3 0 0 0 6 0V7M4 17h16V7H4v10Z" />,
+                settings: <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22.38a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.72v-.51a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2Z" />,
+                send: <path d="m22 2-7 20-4-9-9-4Z" />,
+                check: <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />,
+                users: <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />,
+                trash: <path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />,
+                calendar: <path d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z" />,
+                save: <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2zM17 21v-8H7v8M7 3v5h8" />,
+                alert: <path d="M12 8v4m0 4h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" />,
+                lock: <path d="M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2zM7 11V7a5 5 0 0 1 10 0v4" />
+            };
+            return (
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                    {icons[name] || <circle cx="12" cy="12" r="10" />}
+                </svg>
+            );
+        };
+
+        const App = () => {
+            const [fbReady, setFbReady] = useState(!!window.FB_READY);
+            const [error, setError] = useState(window.FB_ERROR || null);
+            const [user, setUser] = useState(null);
+            const [isAdmin, setIsAdmin] = useState(false);
+            const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+            const [passcode, setPasscode] = useState('');
+            
+            const [businessName, setBusinessName] = useState('');
+            const [repName, setRepName] = useState('');
+            const [requests, setRequests] = useState([]);
+            const [isSubmitted, setIsSubmitted] = useState(false);
+            const [currentPeriod, setCurrentPeriod] = useState('2026년 1기 확정');
+            const [tempPeriod, setTempPeriod] = useState('2026년 1기 확정');
+            const [initLoading, setInitLoading] = useState(true);
+
+            useEffect(() => {
+                const handleReady = () => setFbReady(true);
+                const handleError = () => setError(window.FB_ERROR || "연결 실패");
+                window.addEventListener('firebase-ready', handleReady);
+                window.addEventListener('firebase-error', handleError);
+                if (window.FB_READY) setFbReady(true);
+                if (window.FB_ERROR) setError(window.FB_ERROR);
+                return () => {
+                    window.removeEventListener('firebase-ready', handleReady);
+                    window.removeEventListener('firebase-error', handleError);
+                };
+            }, []);
+
+            useEffect(() => {
+                if (!fbReady || error) return;
+                const authInit = async () => {
+                    try {
+                        if (window.FB.initialToken) {
+                            await window.FB.signInWithCustomToken(window.FB.auth, window.FB.initialToken);
+                        } else {
+                            await window.FB.signInAnonymously(window.FB.auth);
+                        }
+                    } catch (err) { setError("인증 오류: " + err.message); }
+                };
+                const unsubscribeAuth = window.FB.onAuthStateChanged(window.FB.auth, (u) => {
+                    if (u) { setUser(u); setInitLoading(false); }
+                });
+                authInit();
+                return () => unsubscribeAuth();
+            }, [fbReady, error]);
+
+            useEffect(() => {
+                if (!user || error) return;
+                const settingsRef = window.FB.doc(window.FB.db, 'artifacts', window.FB.appId, 'public', 'data', 'settings', 'config');
+                window.FB.getDoc(settingsRef).then((snap) => {
+                    if (snap.exists()) {
+                        const val = String(snap.data().activePeriod || '2026년 1기 확정');
+                        setCurrentPeriod(val);
+                        setTempPeriod(val);
+                    }
+                });
+                if (isAdmin) {
+                    const q = window.FB.collection(window.FB.db, 'artifacts', window.FB.appId, 'public', 'data', 'filing_requests');
+                    const unsubscribeRequests = window.FB.onSnapshot(q, (snapshot) => {
+                        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                        setRequests(data.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)));
+                    });
+                    return () => unsubscribeRequests();
+                }
+            }, [user, isAdmin, error]);
+
+            // 관리자 모드 토글 핸들러
+            const handleAdminToggle = () => {
+                if (isAdmin) {
+                    setIsAdmin(false);
+                } else {
+                    setIsAuthModalOpen(true);
+                }
+            };
+
+            const handleAuthSubmit = (e) => {
+                e.preventDefault();
+                if (passcode === ADMIN_PASSCODE) {
+                    setIsAdmin(true);
+                    setIsAuthModalOpen(false);
+                    setPasscode('');
+                } else {
+                    alert("비밀번호가 일치하지 않습니다.");
+                    setPasscode('');
+                }
+            };
+
+            if (error) {
+                return (
+                    <div className="min-h-screen flex flex-col items-center justify-center p-8 text-center space-y-6 bg-white">
+                        <div className="text-red-500 bg-red-50 p-5 rounded-full ring-8 ring-red-50/50"><Icon name="alert" className="w-12 h-12" /></div>
+                        <h2 className="text-xl font-bold text-slate-800">연결 정보가 없습니다</h2>
+                        <p className="text-slate-500 text-sm leading-relaxed">{error}</p>
+                    </div>
+                );
+            }
+
+            if (initLoading) {
+                return (
+                    <div className="min-h-screen flex flex-col items-center justify-center space-y-4">
+                        <div className="loading-spinner"></div>
+                        <p className="text-slate-400 font-medium">데이터베이스 연결 중...</p>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="min-h-screen flex flex-col">
+                    {/* Header */}
+                    <nav className="bg-white border-b px-5 py-4 flex justify-between items-center shadow-sm">
+                        <div className="flex items-center gap-2">
+                            <div className="bg-blue-600 p-1.5 rounded-lg text-white"><Icon name="building" /></div>
+                            <h1 className="text-lg font-bold text-slate-800 tracking-tight">오투스세무법인</h1>
+                        </div>
+                        {/* 관리자 버튼: 고객 눈에 띄지 않게 희미하게 처리 */}
+                        <button 
+                            onClick={handleAdminToggle} 
+                            className="admin-hidden-trigger text-[10px] text-slate-400 font-bold px-2 py-1 rounded-md"
+                        >
+                            {isAdmin ? '고객모드 전환' : '관리자'}
+                        </button>
+                    </nav>
+
+                    <main className="flex-1 flex flex-col relative">
+                        {/* 암호 입력 모달 */}
+                        {isAuthModalOpen && (
+                            <div className="absolute inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-6">
+                                <div className="bg-white w-full max-w-xs rounded-3xl p-8 shadow-2xl space-y-6 animate-in zoom-in-95">
+                                    <div className="text-center space-y-2">
+                                        <div className="bg-blue-50 w-12 h-12 rounded-full flex items-center justify-center mx-auto text-blue-600">
+                                            <Icon name="lock" className="w-6 h-6" />
+                                        </div>
+                                        <h3 className="text-lg font-bold text-slate-900">관리자 인증</h3>
+                                        <p className="text-xs text-slate-400">비밀번호를 입력하세요.</p>
+                                    </div>
+                                    <form onSubmit={handleAuthSubmit} className="space-y-4">
+                                        <input 
+                                            type="password" 
+                                            autoFocus
+                                            value={passcode}
+                                            onChange={(e) => setPasscode(e.target.value)}
+                                            className="w-full p-4 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 text-center text-xl tracking-widest outline-none"
+                                            placeholder="••••"
+                                        />
+                                        <div className="flex gap-2">
+                                            <button 
+                                                type="button"
+                                                onClick={() => setIsAuthModalOpen(false)}
+                                                className="flex-1 py-3 text-sm font-bold text-slate-400 hover:text-slate-600"
+                                            >
+                                                취소
+                                            </button>
+                                            <button 
+                                                type="submit"
+                                                className="flex-1 bg-blue-600 text-white py-3 rounded-xl text-sm font-bold shadow-lg shadow-blue-100"
+                                            >
+                                                확인
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        )}
+
+                        {!isAdmin ? (
+                            <div className="flex-1 flex flex-col bg-slate-50 p-5 md:p-10 items-center">
+                                {!isSubmitted ? (
+                                    <div className="w-full max-w-md space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                        <div className="text-center space-y-2">
+                                            <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">부가가치세 신고대리</h2>
+                                            <p className="text-blue-600 font-bold bg-blue-50 inline-block px-3 py-1 rounded-full text-xs">
+                                                {String(currentPeriod)} 접수 중
+                                            </p>
+                                        </div>
+
+                                        <div className="bg-white rounded-3xl shadow-xl shadow-blue-900/5 p-8 border border-slate-100 space-y-6">
+                                            <div className="space-y-4">
+                                                <div className="space-y-1.5">
+                                                    <label className="text-sm font-bold text-slate-700 ml-1">상호 (사업장명)</label>
+                                                    <input 
+                                                        type="text" 
+                                                        required 
+                                                        value={businessName} 
+                                                        onChange={e => setBusinessName(e.target.value)} 
+                                                        className="w-full p-4 bg-slate-50 rounded-2xl border-2 border-transparent focus:border-blue-500 focus:bg-white outline-none transition-all text-lg font-medium" 
+                                                        placeholder="예: 오투스모텔" 
+                                                    />
+                                                </div>
+                                                <div className="space-y-1.5">
+                                                    <label className="text-sm font-bold text-slate-700 ml-1">대표자 성함</label>
+                                                    <input 
+                                                        type="text" 
+                                                        required 
+                                                        value={repName} 
+                                                        onChange={e => setRepName(e.target.value)} 
+                                                        className="w-full p-4 bg-slate-50 rounded-2xl border-2 border-transparent focus:border-blue-500 focus:bg-white outline-none transition-all text-lg font-medium" 
+                                                        placeholder="예: 홍길동" 
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <button 
+                                                onClick={() => {
+                                                    if(!businessName || !repName) return alert("정보를 모두 입력해 주세요.");
+                                                    const colRef = window.FB.collection(window.FB.db, 'artifacts', window.FB.appId, 'public', 'data', 'filing_requests');
+                                                    window.FB.addDoc(colRef, {
+                                                        businessName: String(businessName),
+                                                        repName: String(repName),
+                                                        filingPeriod: String(currentPeriod),
+                                                        status: 'pending',
+                                                        createdAt: window.FB.serverTimestamp(),
+                                                        userId: user.uid
+                                                    }).then(() => { setIsSubmitted(true); });
+                                                }}
+                                                className="w-full bg-blue-600 text-white font-bold py-5 rounded-2xl shadow-lg shadow-blue-200 text-lg btn-active transition-all"
+                                            >
+                                                신고 접수하기
+                                            </button>
+                                        </div>
+
+                                        <div className="text-center px-4">
+                                            <p className="text-[11px] text-slate-400 leading-relaxed">
+                                                입력하신 정보는 부가가치세 신고 목적으로만 안전하게 사용됩니다.<br/>
+                                                문의: 010-9124-5952 (오투스세무법인)
+                                            </p>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="w-full max-w-md bg-white p-12 rounded-[2.5rem] shadow-2xl text-center space-y-8 border border-slate-100 mt-20 animate-in zoom-in-95 duration-300">
+                                        <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mx-auto text-green-500">
+                                            <Icon name="check" className="w-10 h-10" />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <h2 className="text-2xl font-bold text-slate-800">접수가 완료되었습니다!</h2>
+                                            <p className="text-slate-500 text-sm">담당자가 확인 후 개별 연락드리겠습니다.</p>
+                                        </div>
+                                        <button 
+                                            onClick={() => { setIsSubmitted(false); setBusinessName(''); setRepName(''); }} 
+                                            className="px-8 py-3 bg-slate-100 rounded-xl font-bold text-slate-600"
+                                        >
+                                            확인
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            /* Admin Mode */
+                            <div className="p-5 md:p-8 space-y-6 max-w-5xl mx-auto w-full animate-in fade-in duration-500">
+                                <div className="grid md:grid-cols-2 gap-4">
+                                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                                        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2"><Icon name="settings" className="w-4 h-4" /> 신고 기간 설정</h3>
+                                        <div className="flex gap-2">
+                                            <input type="text" value={tempPeriod} onChange={e => setTempPeriod(e.target.value)} className="flex-1 p-3 rounded-xl bg-slate-50 border outline-none font-medium" />
+                                            <button onClick={async () => {
+                                                const settingsRef = window.FB.doc(window.FB.db, 'artifacts', window.FB.appId, 'public', 'data', 'settings', 'config');
+                                                await window.FB.setDoc(settingsRef, { activePeriod: String(tempPeriod) }, { merge: true });
+                                                setCurrentPeriod(String(tempPeriod));
+                                                alert('저장되었습니다.');
+                                            }} className="bg-blue-600 text-white px-5 py-3 rounded-xl font-bold shadow-lg shadow-blue-100">저장</button>
+                                        </div>
+                                    </div>
+                                    <div className="bg-indigo-600 p-6 rounded-2xl text-white shadow-lg flex flex-col justify-between">
+                                        <h3 className="font-bold flex items-center gap-2"><Icon name="send" /> 문자 발송 문구</h3>
+                                        <p className="text-[10px] opacity-80 mt-2 leading-relaxed bg-white/10 p-2 rounded-lg select-all">
+                                            [오투스세무법인] {currentPeriod} 부가세 신고 안내. 아래 링크에서 상호를 입력해 주세요: (접수링크 주소)
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="flex justify-between items-end px-1 pt-4">
+                                    <h2 className="text-xl font-bold text-slate-800 flex items-center gap-3"><Icon name="users" className="text-blue-600 w-6 h-6" /> 접수 현황 ({requests.length})</h2>
+                                    <button onClick={() => {
+                                        const text = requests.map(r => `${r.filingPeriod}\t${r.businessName}\t${r.repName}\t${r.status === 'confirmed' ? '완료' : '대기'}`).join('\n');
+                                        const area = document.createElement('textarea');
+                                        area.value = `신고기간\t상호\t대표자명\t상태\n${text}`;
+                                        document.body.appendChild(area);
+                                        area.select();
+                                        document.execCommand('copy');
+                                        document.body.removeChild(area);
+                                        alert('엑셀용 데이터가 복사되었습니다.');
+                                    }} className="bg-slate-900 text-white px-5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-transform active:scale-95">
+                                        <Icon name="check" className="w-4 h-4" /> 엑셀용 복사
+                                    </button>
+                                </div>
+
+                                <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-left">
+                                            <thead className="bg-slate-50 border-b text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                                                <tr>
+                                                    <th className="px-6 py-4">상호</th>
+                                                    <th className="px-6 py-4">대표자</th>
+                                                    <th className="px-6 py-4 text-center">진행</th>
+                                                    <th className="px-6 py-4 text-right">삭제</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-50">
+                                                {requests.map(req => (
+                                                    <tr key={req.id} className="hover:bg-slate-50/50 transition-colors group">
+                                                        <td className="px-6 py-4 font-bold text-slate-900 text-sm">{String(req.businessName)}</td>
+                                                        <td className="px-6 py-4 text-sm font-medium text-slate-600">{String(req.repName)}</td>
+                                                        <td className="px-6 py-4 text-center">
+                                                            <button 
+                                                                onClick={async () => {
+                                                                    const docRef = window.FB.doc(window.FB.db, 'artifacts', window.FB.appId, 'public', 'data', 'filing_requests', req.id);
+                                                                    await window.FB.updateDoc(docRef, { status: req.status === 'pending' ? 'confirmed' : 'pending' });
+                                                                }}
+                                                                className={`px-3 py-1.5 rounded-full text-[10px] font-bold border transition-all ${req.status === 'confirmed' ? 'bg-green-50 text-green-700 border-green-100' : 'bg-amber-50 text-amber-700 border-amber-100'}`}
+                                                            >
+                                                                {req.status === 'confirmed' ? '완료' : '대기'}
+                                                            </button>
+                                                        </td>
+                                                        <td className="px-6 py-4 text-right">
+                                                            <button 
+                                                                onClick={async () => { if(confirm('삭제할까요?')) await window.FB.deleteDoc(window.FB.doc(window.FB.db, 'artifacts', window.FB.appId, 'public', 'data', 'filing_requests', req.id)); }}
+                                                                className="text-slate-200 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all p-2"
+                                                            >
+                                                                <Icon name="trash" className="w-4 h-4" />
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                                {requests.length === 0 && (
+                                                    <tr>
+                                                        <td colSpan="4" className="px-6 py-20 text-center text-slate-300 text-xs italic">접수된 내역이 없습니다.</td>
+                                                    </tr>
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </main>
+
+                    {/* Footer branding */}
+                    <footer className="py-6 text-center text-slate-300 text-[10px]">
+                        © 2026 오투스세무법인 All rights reserved.
+                    </footer>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
