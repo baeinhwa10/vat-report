@@ -27,9 +27,6 @@
         .btn-active:active { transform: scale(0.98); }
         .admin-hidden-trigger { opacity: 0.1; transition: opacity 0.3s; }
         .admin-hidden-trigger:hover { opacity: 0.5; }
-        /* 엑셀 복사 시 시각적 효과 */
-        .copy-flash { animation: flash 0.5s ease-out; }
-        @keyframes flash { 0% { background-color: #dcfce7; } 100% { background-color: transparent; } }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-900 overflow-x-hidden">
@@ -49,8 +46,7 @@
         // ========================================================
         // 1. 여기에 Firebase 콘솔에서 복사한 키값을 입력하세요
         // ========================================================
-        const manualConfig = {
-            apiKey: "AIzaSyCmqVgpC-ImcKIUMnXmk1USeGuitsD-Z5A",
+        apiKey: "AIzaSyCmqVgpC-ImcKIUMnXmk1USeGuitsD-Z5A",
   authDomain: "vattax0001.firebaseapp.com",
   projectId: "vattax0001",
   storageBucket: "vattax0001.firebasestorage.app",
@@ -105,7 +101,7 @@
         const Icon = ({ name, className = "w-5 h-5" }) => {
             const icons = {
                 building: <path d="M3 21h18M3 7v1a3 3 0 0 0 6 0V7m0 1a3 3 0 0 0 6 0V7m0 1a3 3 0 0 0 6 0V7M4 17h16V7H4v10Z" />,
-                settings: <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22.38a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.72v-.51a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2Z" />,
+                settings: <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.72v-.51a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2Z" />,
                 send: <path d="m22 2-7 20-4-9-9-4Z" />,
                 check: <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />,
                 users: <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />,
@@ -138,9 +134,10 @@
             const [tempPeriod, setTempPeriod] = useState('2026년 1기 확정');
             const [initLoading, setInitLoading] = useState(true);
 
-            // 관리자용 필터 및 검색 상태
+            // 관리자용 필터, 검색, 선택 상태
             const [selectedFilter, setSelectedFilter] = useState('all');
             const [searchTerm, setSearchTerm] = useState('');
+            const [selectedIds, setSelectedIds] = useState([]);
 
             useEffect(() => {
                 const handleReady = () => setFbReady(true);
@@ -181,11 +178,10 @@
                         const val = String(snap.data().activePeriod || '2026년 1기 확정');
                         setCurrentPeriod(val);
                         setTempPeriod(val);
-                        setSelectedFilter(val); // 관리자 모드 접속 시 기본적으로 현재 기수 필터 적용
+                        setSelectedFilter(val);
                     }
                 });
 
-                // 데이터 실시간 감시는 전체 기수를 모두 가져옵니다
                 const q = window.FB.collection(window.FB.db, 'artifacts', window.FB.appId, 'public', 'data', 'filing_requests');
                 const unsubscribeRequests = window.FB.onSnapshot(q, (snapshot) => {
                     const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -194,16 +190,11 @@
                 return () => unsubscribeRequests();
             }, [user, error]);
 
-            // 필터링된 결과 계산 (기수 필터 + 검색어 필터)
             const filteredRequests = useMemo(() => {
                 let result = requests;
-                
-                // 1. 기수 필터 적용
                 if (selectedFilter !== 'all') {
                     result = result.filter(req => req.filingPeriod === selectedFilter);
                 }
-                
-                // 2. 검색어 필터 적용 (상호 또는 대표자명)
                 if (searchTerm.trim() !== '') {
                     const term = searchTerm.toLowerCase();
                     result = result.filter(req => 
@@ -211,16 +202,44 @@
                         String(req.repName).toLowerCase().includes(term)
                     );
                 }
-                
                 return result;
             }, [requests, selectedFilter, searchTerm]);
 
-            // 기수 목록 추출 (필터용)
             const periods = useMemo(() => {
                 const uniquePeriods = Array.from(new Set(requests.map(req => req.filingPeriod)));
                 if (!uniquePeriods.includes(currentPeriod)) uniquePeriods.push(currentPeriod);
                 return uniquePeriods.sort().reverse();
             }, [requests, currentPeriod]);
+
+            // 선택 핸들러
+            const toggleSelectAll = (e) => {
+                if (e.target.checked) {
+                    setSelectedIds(filteredRequests.map(r => r.id));
+                } else {
+                    setSelectedIds([]);
+                }
+            };
+
+            const toggleSelectOne = (id) => {
+                setSelectedIds(prev => 
+                    prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+                );
+            };
+
+            const handleBulkDelete = async () => {
+                if (!confirm(`선택한 ${selectedIds.length}건의 데이터를 삭제하시겠습니까? 삭제 후 복구는 불가능합니다.`)) return;
+                
+                try {
+                    for (const id of selectedIds) {
+                        const docRef = window.FB.doc(window.FB.db, 'artifacts', window.FB.appId, 'public', 'data', 'filing_requests', id);
+                        await window.FB.deleteDoc(docRef);
+                    }
+                    setSelectedIds([]);
+                    alert("일괄 삭제가 완료되었습니다.");
+                } catch (e) {
+                    alert("삭제 중 오류가 발생했습니다: " + e.message);
+                }
+            };
 
             const handleAdminToggle = () => {
                 if (isAdmin) {
@@ -236,7 +255,7 @@
                     setIsAdmin(true);
                     setIsAuthModalOpen(false);
                     setPasscode('');
-                    setSelectedFilter(currentPeriod); // 관리자 접속 시 현재 기수 우선 노출
+                    setSelectedFilter(currentPeriod);
                 } else {
                     alert("비밀번호가 일치하지 않습니다.");
                     setPasscode('');
@@ -264,11 +283,15 @@
 
             return (
                 <div className="min-h-screen flex flex-col">
-                    {/* 고정 헤더 - 제목 소실 방지 */}
                     <nav className="bg-white border-b px-5 py-4 flex justify-between items-center shadow-sm z-20">
-                        <div className="flex items-center gap-2">
-                            <div className="bg-blue-600 p-1.5 rounded-lg text-white"><Icon name="building" /></div>
-                            <h1 className="text-lg font-bold text-slate-800 tracking-tight">오투스세무법인_부가세신고접수</h1>
+                        <div className="flex flex-col">
+                            <div className="flex items-center gap-2">
+                                <div className="bg-blue-600 p-1 rounded-md text-white"><Icon name="building" className="w-4 h-4" /></div>
+                                <h1 className="text-lg font-bold text-slate-800 tracking-tight leading-none">오투스세무법인_부가세신고접수</h1>
+                            </div>
+                            <p className="text-[11px] text-slate-500 mt-1 font-medium ml-7">
+                                2기확정 부가세신고 의뢰하실경우 아래 링크에서 상호를 입력해주세요.
+                            </p>
                         </div>
                         <button 
                             onClick={handleAdminToggle} 
@@ -287,7 +310,6 @@
                                             <Icon name="lock" className="w-6 h-6" />
                                         </div>
                                         <h3 className="text-lg font-bold text-slate-900 tracking-tight">관리자 본인 확인</h3>
-                                        <p className="text-xs text-slate-400">비밀번호를 입력해 주세요.</p>
                                     </div>
                                     <form onSubmit={handleAuthSubmit} className="space-y-4">
                                         <input 
@@ -305,7 +327,7 @@
                                             </button>
                                             <button 
                                                 type="submit"
-                                                className="flex-1 bg-blue-600 text-white py-3 rounded-xl text-sm font-bold shadow-lg shadow-blue-100 transition-all hover:bg-blue-700 active:scale-95"
+                                                className="flex-1 bg-blue-600 text-white py-3 rounded-xl text-sm font-bold shadow-lg shadow-blue-100"
                                             >
                                                 확인
                                             </button>
@@ -320,9 +342,9 @@
                                 {!isSubmitted ? (
                                     <div className="w-full max-w-md space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
                                         <div className="text-center space-y-2 pt-4">
-                                            <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">부가가치세 신고대리 의뢰</h2>
+                                            <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">신고대리 접수</h2>
                                             <p className="text-blue-600 font-bold bg-blue-50 inline-block px-4 py-1.5 rounded-full text-xs border border-blue-100">
-                                                {String(currentPeriod)} 접수 안내
+                                                {String(currentPeriod)} 진행 중
                                             </p>
                                         </div>
 
@@ -348,16 +370,30 @@
 
                                             <button 
                                                 onClick={() => {
-                                                    if(!businessName || !repName) return alert("정보를 모두 입력해 주세요.");
+                                                    const bName = businessName.trim();
+                                                    const rName = repName.trim();
+                                                    if(!bName || !rName) return alert("정보를 모두 입력해 주세요.");
+
+                                                    const isDuplicate = requests.some(req => 
+                                                        String(req.businessName).trim() === bName && 
+                                                        String(req.repName).trim() === rName && 
+                                                        String(req.filingPeriod) === currentPeriod
+                                                    );
+
+                                                    if (isDuplicate) {
+                                                        alert("이미 접수되었습니다.");
+                                                        return;
+                                                    }
+
                                                     const colRef = window.FB.collection(window.FB.db, 'artifacts', window.FB.appId, 'public', 'data', 'filing_requests');
                                                     window.FB.addDoc(colRef, {
-                                                        businessName: String(businessName),
-                                                        repName: String(repName),
+                                                        businessName: String(bName),
+                                                        repName: String(rName),
                                                         filingPeriod: String(currentPeriod),
                                                         status: 'pending',
                                                         createdAt: window.FB.serverTimestamp(),
                                                         userId: user.uid
-                                                    }).then(() => { setIsSubmitted(true); }).catch(err => alert("제출 중 오류가 발생했습니다: " + err.message));
+                                                    }).then(() => { setIsSubmitted(true); }).catch(err => alert("제출 오류: " + err.message));
                                                 }}
                                                 className="w-full bg-blue-600 text-white font-bold py-5 rounded-2xl shadow-lg shadow-blue-200 text-lg btn-active transition-all hover:bg-blue-700"
                                             >
@@ -367,8 +403,7 @@
 
                                         <div className="text-center px-4">
                                             <p className="text-[11px] text-slate-400 leading-relaxed">
-                                                입력하신 정보는 오투스세무법인의 보안 서버에 암호화되어 저장되며,<br/>
-                                                부가가치세 신고 업무 목적으로만 사용됩니다.<br/>
+                                                안전한 업무 처리를 위해 정보를 정확히 입력해 주세요.<br/>
                                                 문의: 010-9124-5952
                                             </p>
                                         </div>
@@ -380,7 +415,7 @@
                                         </div>
                                         <div className="space-y-2">
                                             <h2 className="text-2xl font-bold text-slate-800 tracking-tight">접수가 완료되었습니다!</h2>
-                                            <p className="text-slate-500 text-sm">확인 후 담당자가 개별 안내 문자를 드립니다.</p>
+                                            <p className="text-slate-500 text-sm">감사합니다. 담당자가 연락드리겠습니다.</p>
                                         </div>
                                         <button 
                                             onClick={() => { setIsSubmitted(false); setBusinessName(''); setRepName(''); }} 
@@ -403,68 +438,65 @@
                                                 const settingsRef = window.FB.doc(window.FB.db, 'artifacts', window.FB.appId, 'public', 'data', 'settings', 'config');
                                                 await window.FB.setDoc(settingsRef, { activePeriod: String(tempPeriod) }, { merge: true });
                                                 setCurrentPeriod(String(tempPeriod));
-                                                alert('설정된 신고 기간이 저장되었습니다.');
-                                            }} className="bg-blue-600 text-white px-5 py-3 rounded-xl font-bold shadow-lg shadow-blue-100 active:scale-95 transition-all">저장</button>
+                                                alert('설정 저장 완료');
+                                            }} className="bg-blue-600 text-white px-5 py-3 rounded-xl font-bold shadow-lg shadow-blue-100 active:scale-95 transition-all text-sm">저장</button>
                                         </div>
                                     </div>
-                                    <div className="bg-indigo-600 p-6 rounded-2xl text-white shadow-lg relative overflow-hidden group">
-                                        <h3 className="font-bold flex items-center gap-2 z-10 relative"><Icon name="send" /> 기수별 문자 안내</h3>
+                                    <div className="bg-indigo-600 p-6 rounded-2xl text-white shadow-lg relative overflow-hidden group flex flex-col justify-center">
+                                        <h3 className="font-bold flex items-center gap-2 z-10 relative text-sm"><Icon name="send" /> 문자 발송 가이드</h3>
                                         <p className="text-[10px] opacity-90 mt-2 leading-relaxed bg-white/10 p-2 rounded-lg select-all relative z-10">
                                             [오투스세무법인] {currentPeriod} 부가세 신고 안내. 아래 링크에서 상호를 입력해 주세요. (접수링크 주소 입력)
                                         </p>
-                                        <Icon name="send" className="absolute -bottom-4 -right-4 w-24 h-24 opacity-10 rotate-12" />
+                                        <Icon name="send" className="absolute -bottom-4 -right-4 w-20 h-20 opacity-10 rotate-12" />
                                     </div>
                                 </div>
 
-                                {/* 필터링 및 검색 컨트롤러 */}
-                                <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col gap-5">
+                                <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm space-y-5">
                                     <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-                                        <div className="flex items-center gap-3 w-full md:w-auto">
-                                            <div className="bg-slate-100 p-2.5 rounded-xl text-slate-500"><Icon name="filter" /></div>
+                                        <div className="flex items-center gap-4 w-full md:w-auto">
                                             <div className="flex flex-col min-w-[150px]">
-                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">집계 기수 선택</span>
+                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight ml-1">집계 기수</span>
                                                 <select 
                                                     value={selectedFilter} 
-                                                    onChange={(e) => setSelectedFilter(e.target.value)}
-                                                    className="bg-transparent font-bold text-slate-800 outline-none border-b-2 border-transparent focus:border-blue-500 py-0.5 cursor-pointer"
+                                                    onChange={(e) => { setSelectedFilter(e.target.value); setSelectedIds([]); }}
+                                                    className="bg-transparent font-bold text-slate-800 outline-none border-b-2 border-transparent focus:border-blue-500 py-1 cursor-pointer"
                                                 >
-                                                    <option value="all">전체 기수 보기</option>
+                                                    <option value="all">전체 기수</option>
                                                     {periods.map(p => <option key={p} value={p}>{p}</option>)}
                                                 </select>
                                             </div>
-                                        </div>
 
-                                        <div className="relative w-full md:w-72">
-                                            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
-                                                <Icon name="search" className="w-4 h-4" />
+                                            <div className="relative flex-1 md:w-64">
+                                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                                                    <Icon name="search" className="w-3.5 h-3.5" />
+                                                </div>
+                                                <input 
+                                                    type="text" 
+                                                    placeholder="상호/대표자 검색"
+                                                    value={searchTerm}
+                                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                                    className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-100 transition-all"
+                                                />
                                             </div>
-                                            <input 
-                                                type="text" 
-                                                placeholder="거래처 또는 대표자 검색"
-                                                value={searchTerm}
-                                                onChange={(e) => setSearchTerm(e.target.value)}
-                                                className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all"
-                                            />
                                         </div>
                                         
-                                        <button onClick={() => {
-                                            const text = filteredRequests.map(r => `${r.filingPeriod}\t${r.businessName}\t${r.repName}\t${r.status === 'confirmed' ? '완료' : '대기'}`).join('\n');
-                                            const area = document.createElement('textarea');
-                                            area.value = `신고기간\t상호\t대표자명\t상태\n${text}`;
-                                            document.body.appendChild(area); area.select();
-                                            document.execCommand('copy'); document.body.removeChild(area);
-                                            alert(`${selectedFilter === 'all' ? '전체' : selectedFilter} 기수 데이터가 엑셀용으로 복사되었습니다.`);
-                                        }} className="w-full md:w-auto bg-slate-900 text-white px-6 py-3.5 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 hover:bg-slate-800 transition-all active:scale-95">
-                                            <Icon name="check" className="w-4 h-4" /> 엑셀 데이터 복사
-                                        </button>
+                                        {selectedIds.length > 0 && (
+                                            <button 
+                                                onClick={handleBulkDelete}
+                                                className="w-full md:w-auto bg-red-50 text-red-600 px-4 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-2 hover:bg-red-100 transition-all animate-in fade-in slide-in-from-right-2"
+                                            >
+                                                <Icon name="trash" className="w-3.5 h-3.5" />
+                                                {selectedIds.length}건 선택 삭제
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
 
                                 <div className="flex justify-between items-center px-1">
-                                    <h2 className="text-xl font-bold text-slate-800 flex items-center gap-3">
-                                        <Icon name="users" className="text-blue-600 w-6 h-6" /> 
+                                    <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                                        <Icon name="users" className="text-blue-600 w-5 h-5" /> 
                                         {searchTerm ? '검색 결과' : (selectedFilter === 'all' ? '전체 접수 현황' : `[${selectedFilter}] 접수 현황`)} 
-                                        <span className="text-blue-600 bg-blue-50 px-3 py-1 rounded-lg text-sm ml-1 font-extrabold">{filteredRequests.length}건</span>
+                                        <span className="text-blue-600 bg-blue-50 px-2 py-0.5 rounded-lg text-xs ml-1 font-extrabold">{filteredRequests.length}건</span>
                                     </h2>
                                 </div>
 
@@ -473,20 +505,36 @@
                                         <table className="w-full text-left">
                                             <thead className="bg-slate-50 border-b text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                                                 <tr>
-                                                    <th className="px-6 py-5">신고기간</th>
-                                                    <th className="px-6 py-5">상호</th>
-                                                    <th className="px-6 py-5">대표자</th>
-                                                    <th className="px-6 py-5 text-center">상태</th>
-                                                    <th className="px-6 py-5 text-right">관리</th>
+                                                    <th className="px-6 py-4 w-10 text-center">
+                                                        <input 
+                                                            type="checkbox" 
+                                                            onChange={toggleSelectAll}
+                                                            checked={filteredRequests.length > 0 && selectedIds.length === filteredRequests.length}
+                                                            className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                                        />
+                                                    </th>
+                                                    <th className="px-6 py-4">기수</th>
+                                                    <th className="px-6 py-4">상호</th>
+                                                    <th className="px-6 py-4">대표자</th>
+                                                    <th className="px-6 py-4 text-center">상태</th>
+                                                    <th className="px-6 py-4 text-right">삭제</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-slate-50">
                                                 {filteredRequests.map(req => (
-                                                    <tr key={req.id} className="hover:bg-slate-50/50 transition-colors group">
-                                                        <td className="px-6 py-5 text-[10px] font-bold text-indigo-500 tracking-tighter">{String(req.filingPeriod)}</td>
-                                                        <td className="px-6 py-5 font-bold text-slate-900 text-sm">{String(req.businessName)}</td>
-                                                        <td className="px-6 py-5 text-sm font-medium text-slate-600">{String(req.repName)}</td>
-                                                        <td className="px-6 py-5 text-center">
+                                                    <tr key={req.id} className={`hover:bg-slate-50/50 transition-colors group ${selectedIds.includes(req.id) ? 'bg-blue-50/30' : ''}`}>
+                                                        <td className="px-6 py-4 text-center">
+                                                            <input 
+                                                                type="checkbox" 
+                                                                checked={selectedIds.includes(req.id)}
+                                                                onChange={() => toggleSelectOne(req.id)}
+                                                                className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                                            />
+                                                        </td>
+                                                        <td className="px-6 py-4 text-[10px] font-bold text-indigo-500 tracking-tighter">{String(req.filingPeriod)}</td>
+                                                        <td className="px-6 py-4 font-bold text-slate-900 text-sm">{String(req.businessName)}</td>
+                                                        <td className="px-6 py-4 text-sm font-medium text-slate-600">{String(req.repName)}</td>
+                                                        <td className="px-6 py-4 text-center">
                                                             <button 
                                                                 onClick={async () => {
                                                                     const docRef = window.FB.doc(window.FB.db, 'artifacts', window.FB.appId, 'public', 'data', 'filing_requests', req.id);
@@ -494,12 +542,12 @@
                                                                 }}
                                                                 className={`px-3 py-1.5 rounded-full text-[10px] font-bold border transition-all ${req.status === 'confirmed' ? 'bg-green-50 text-green-700 border-green-100' : 'bg-amber-50 text-amber-700 border-amber-100'}`}
                                                             >
-                                                                {req.status === 'confirmed' ? '확인완료' : '대기중'}
+                                                                {req.status === 'confirmed' ? '완료' : '대기'}
                                                             </button>
                                                         </td>
-                                                        <td className="px-6 py-5 text-right">
+                                                        <td className="px-6 py-4 text-right">
                                                             <button 
-                                                                onClick={async () => { if(confirm('삭제된 데이터는 복구할 수 없습니다. 삭제할까요?')) await window.FB.deleteDoc(window.FB.doc(window.FB.db, 'artifacts', window.FB.appId, 'public', 'data', 'filing_requests', req.id)); }}
+                                                                onClick={async () => { if(confirm('삭제하시겠습니까?')) await window.FB.deleteDoc(window.FB.doc(window.FB.db, 'artifacts', window.FB.appId, 'public', 'data', 'filing_requests', req.id)); }}
                                                                 className="text-slate-200 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all p-2"
                                                             >
                                                                 <Icon name="trash" className="w-4 h-4" />
@@ -509,7 +557,7 @@
                                                 ))}
                                                 {filteredRequests.length === 0 && (
                                                     <tr>
-                                                        <td colSpan="5" className="px-6 py-20 text-center text-slate-300 text-xs italic">
+                                                        <td colSpan="6" className="px-6 py-20 text-center text-slate-300 text-xs italic">
                                                             {searchTerm ? '검색 결과가 없습니다.' : '접수된 내역이 없습니다.'}
                                                         </td>
                                                     </tr>
